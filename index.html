@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Monitoring</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: sans-serif;
+      background: #e8f4f8;
+      min-height: 100vh;
+    }
+
+    .topbar {
+      background: #3a7bd5;
+      padding: .75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar h1 { color: #fff; font-size: 17px; font-weight: 600; letter-spacing: .02em; }
+    .topbar .menu { color: #fff; font-size: 20px; cursor: pointer; }
+
+    .content { padding: .75rem; }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      margin-bottom: .65rem;
+      overflow: hidden;
+    }
+
+    .card-title {
+      background: #5ab0c8;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: .5rem .85rem;
+      letter-spacing: .04em;
+      text-align: center;
+    }
+    .card-title.blue { background: #3a7bd5; }
+
+    .status-row { padding: .6rem .85rem; text-align: center; }
+    .status-text { font-size: 14px; font-weight: 700; }
+    .status-text.disconnected { color: #e53935; }
+    .status-text.connected    { color: #2e7d32; }
+    .status-text.connecting   { color: #f0a050; }
+
+    .sensor-table { width: 100%; border-collapse: collapse; }
+    .sensor-table td {
+      padding: .45rem .85rem;
+      font-size: 13px;
+      color: #1a2a4a;
+      border-bottom: 1px solid #e8f0f8;
+    }
+    .sensor-table td:last-child {
+      text-align: right;
+      font-weight: 600;
+      color: #3a7bd5;
+    }
+    .sensor-table tr:last-child td { border-bottom: none; }
+
+    .btn-row { display: flex; gap: .5rem; padding: .6rem .85rem; }
+    .btn-connect {
+      flex: 1;
+      padding: .55rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-connect.connect    { background: #b39ddb; color: #fff; }
+    .btn-connect.disconnect { background: #e0e0e0; color: #555; }
+    .btn-connect:active { opacity: .8; }
+
+    .mode-wrap { padding: .65rem .85rem; }
+    .mode-tabs {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #3a7bd5;
+    }
+    .mode-tab {
+      flex: 1;
+      padding: .5rem;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+      color: #3a7bd5;
+      border: none;
+    }
+    .mode-tab.active { background: #3a7bd5; color: #fff; }
+    .mode-desc {
+      font-size: 11.5px;
+      color: #7a96b8;
+      text-align: center;
+      margin-top: .4rem;
+    }
+
+    .relay-label {
+      padding: .5rem .85rem;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      color: #fff;
+      background: #5ab0c8;
+      letter-spacing: .06em;
+    }
+    .relay-row {
+      display: flex;
+      align-items: center;
+      padding: .5rem .85rem;
+      border-bottom: 1px solid #e8f0f8;
+      gap: .5rem;
+    }
+    .relay-row:last-child { border-bottom: none; }
+    .relay-num { font-size: 14px; font-weight: 700; color: #1a2a4a; min-width: 22px; }
+    .relay-btns { display: flex; gap: 6px; flex: 1; }
+
+    .r-on, .r-off {
+      flex: 1;
+      padding: .45rem 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .r-on          { background: #4caf50; color: #fff; }
+    .r-off         { background: #e53935; color: #fff; }
+    .r-on.inactive { background: #a5d6a7; color: #fff; }
+    .r-off.inactive{ background: #ef9a9a; color: #fff; }
+    .r-on:active, .r-off:active { opacity: .75; }
+
+    .hist-list {
+      list-style: none;
+      max-height: 140px;
+      overflow-y: auto;
+      padding: .4rem .85rem;
+    }
+    .hist-list li {
+      font-size: 11.5px;
+      padding: 3px 0;
+      border-bottom: 1px solid #f0f4fa;
+      display: flex;
+      gap: 7px;
+    }
+    .hist-list li:last-child { border-bottom: none; }
+    .ht { color: #3a7bd5; font-weight: 700; min-width: 56px; font-size: 11px; }
+    .hm { color: #444; }
+
+    .logbox {
+      background: #1a2a4a;
+      border-radius: 8px;
+      padding: .5rem .75rem;
+      margin-bottom: .4rem;
+    }
+    #log {
+      font-size: 10.5px;
+      color: #7aabf0;
+      font-family: monospace;
+      max-height: 60px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>IoT Monitoring</h1>
+  <span class="menu">⋮</span>
+</div>
+
+<div class="content">
+
+  <!-- CARD SENSOR -->
+  <div class="card">
+    <div class="card-title">IoT Monitoring Suhu</div>
+    <div class="status-row">
+      <div class="status-text disconnected" id="status-text">Status : Belum Terhubung</div>
+    </div>
+    <table class="sensor-table">
+      <tr><td>Suhu</td><td id="suhu-val">-- °C</td></tr>
+      <tr><td>Kelembapan</td><td id="hum-val">-- %</td></tr>
+    </table>
+    <div class="btn-row">
+      <button class="btn-connect connect" onclick="doConnect()">Connect</button>
+      <button class="btn-connect disconnect" onclick="doDisconnect()">Disconnect</button>
+    </div>
+  </div>
+
+  <!-- CARD MODE -->
+  <div class="card">
+    <div class="card-title blue">Mode Kontrol</div>
+    <div class="mode-wrap">
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-manual" onclick="setMode('manual')">Manual</button>
+        <button class="mode-tab" id="tab-auto" onclick="setMode('otomatis')">Otomatis</button>
+      </div>
+      <div class="mode-desc" id="mode-desc">Relay dikontrol secara manual via tombol ON/OFF</div>
+    </div>
+  </div>
+
+  <!-- CARD RELAY -->
+  <div class="card">
+    <div class="relay-label">RELAY</div>
+    <div id="relay-list"></div>
+  </div>
+
+  <!-- CARD RIWAYAT -->
+  <div class="card">
+    <div class="card-title blue">Riwayat Aktivitas (20 Menit)</div>
+    <ul class="hist-list" id="hist-list">
+      <li><span class="ht">--:--:--</span><span class="hm">Menunggu data...</span></li>
+    </ul>
+  </div>
+
+  <!-- LOG DEBUG -->
+  <div class="logbox">
+    <div id="log">Memulai koneksi...</div>
+  </div>
+
+</div>
+
+<!-- MQTT Library -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<script>
+  /* ============================================================
+     KONFIGURASI — disesuaikan dengan Arduino
+     
+     Arduino publish ke : smk/iot/sensor/tiga  → format: "suhu,hum"
+     Arduino subscribe  : smk/iot/control/tiga → format perintah relay & mode
+     
+     Broker Arduino pakai broker.hivemq.com (public, port 1883).
+     Web harus WebSocket, port 8000 (WS tidak terenkripsi).
+     Jika situs diakses via HTTPS, gunakan WSS port 8884 di bawah.
+  ============================================================ */
+
+  // ▼▼ BROKER — pilih salah satu sesuai situasi ▼▼
+  // Opsi A: broker publik HiveMQ (sama persis dengan Arduino)
+  const MQTT_URL  = 'wss://broker.hivemq.com:8884/mqtt'; // WSS (HTTPS-safe)
+  // const MQTT_URL = 'ws://broker.hivemq.com:8000/mqtt'; // WS (HTTP only)
+
+  const MQTT_USER = '';   // broker publik tidak butuh user/pass
+  const MQTT_PASS = '';
+
+  // Topic — HARUS SAMA dengan Arduino
+  const TOPIC_SUB = 'smk/iot/sensor/tiga';   // Arduino publish sensor ke sini
+  const TOPIC_PUB = 'smk/iot/control/tiga';  // Web publish perintah ke sini
+
+  const NUM_RELAY = 4;
+  const HIST_MS   = 20 * 60 * 1000;
+
+  /* ============================================================
+     STATE
+  ============================================================ */
+  const relayStates = Array(NUM_RELAY).fill(false);
+  let autoMode   = false;
+  let mqttClient = null;
+  let isConnected = false;
+  const histItems = [];
+
+  /* ============================================================
+     BUAT BARIS RELAY
+  ============================================================ */
+  const relayList = document.getElementById('relay-list');
+  for (let i = 0; i < NUM_RELAY; i++) {
+    const row = document.createElement('div');
+    row.className = 'relay-row';
+    row.innerHTML = `
+      <span class="relay-num">${i + 1}.</span>
+      <div class="relay-btns">
+        <button class="r-on inactive" id="ron${i}" onclick="sendRelay(${i}, true)">ON</button>
+        <button class="r-off"         id="roff${i}" onclick="sendRelay(${i}, false)">OFF</button>
+      </div>`;
+    relayList.appendChild(row);
+  }
+
+  /* ============================================================
+     LOG & RIWAYAT
+  ============================================================ */
+  function log(msg) {
+    const el = document.getElementById('log');
+    el.textContent = new Date().toLocaleTimeString() + ' ' + msg + '\n' + el.textContent;
+  }
+
+  function addHistory(msg) {
+    const now = Date.now();
+    histItems.unshift({ t: now, msg });
+    const cutoff = now - HIST_MS;
+    for (let i = histItems.length - 1; i >= 0; i--) {
+      if (histItems[i].t < cutoff) histItems.splice(i, 1);
+    }
+    renderHistory();
+    log(msg);
+  }
+
+  function renderHistory() {
+    const ul = document.getElementById('hist-list');
+    if (!histItems.length) {
+      ul.innerHTML = '<li><span class="ht">--:--:--</span><span class="hm">Kosong</span></li>';
+      return;
+    }
+    ul.innerHTML = histItems.map(h =>
+      `<li><span class="ht">${new Date(h.t).toLocaleTimeString()}</span><span class="hm">${h.msg}</span></li>`
+    ).join('');
+  }
+
+  setInterval(() => {
+    const cutoff = Date.now() - HIST_MS;
+    let changed = false;
+    for (let i = histItems.length - 1; i >= 0; i--) {
+      if (histItems[i].t < cutoff) { histItems.splice(i, 1); changed = true; }
+    }
+    if (changed) renderHistory();
+  }, 30000);
+
+  /* ============================================================
+     UI HELPERS
+  ============================================================ */
+  function setStatus(state, msg) {
+    isConnected = (state === 'ok');
+    const el = document.getElementById('status-text');
+    el.className = 'status-text ' + (state === 'ok' ? 'connected' : state === 'connecting' ? 'connecting' : 'disconnected');
+    el.textContent = msg;
+  }
+
+  function refreshRelay(i) {
+    document.getElementById('ron'  + i).className = 'r-on'  + (relayStates[i] ? '' : ' inactive');
+    document.getElementById('roff' + i).className = 'r-off' + (relayStates[i] ? ' inactive' : '');
+  }
+
+  /* ============================================================
+     MODE: MANUAL / OTOMATIS
+     Pesan ke Arduino: "MODE_AUTO" atau "MODE_MANUAL"
+  ============================================================ */
+  function setMode(mode) {
+    autoMode = (mode === 'otomatis');
+
+    document.getElementById('tab-manual').className = 'mode-tab' + (autoMode ? '' : ' active');
+    document.getElementById('tab-auto').className   = 'mode-tab' + (autoMode ? ' active' : '');
+    document.getElementById('mode-desc').textContent = autoMode
+      ? 'Relay dikontrol otomatis oleh sistem berdasarkan suhu'
+      : 'Relay dikontrol secara manual via tombol ON/OFF';
+
+    document.querySelectorAll('.r-on, .r-off').forEach(btn => {
+      btn.style.opacity       = autoMode ? '0.45' : '1';
+      btn.style.pointerEvents = autoMode ? 'none' : 'auto';
+    });
+
+    // Kirim ke Arduino via MQTT — format yang dimengerti Arduino
+    if (isConnected && mqttClient) {
+      const cmd = autoMode ? 'MODE_AUTO' : 'MODE_MANUAL';
+      mqttClient.publish(TOPIC_PUB, cmd, { retain: false });
+      addHistory('Kirim mode: ' + cmd);
+    } else {
+      addHistory('Mode diganti ke: ' + (autoMode ? 'Otomatis' : 'Manual'));
+    }
+  }
+
+  /* ============================================================
+     MQTT: CONNECT & DISCONNECT
+  ============================================================ */
+  function doConnect() {
+    if (isConnected) return;
+    setStatus('connecting', 'Status : Menghubungkan...');
+    log('Mencoba koneksi ke: ' + MQTT_URL);
+
+    const opts = {
+      clientId:        'web_' + Math.random().toString(16).slice(2, 10),
+      reconnectPeriod: 0,
+      connectTimeout:  10000,
+      clean:           true
+    };
+    if (MQTT_USER) { opts.username = MQTT_USER; opts.password = MQTT_PASS; }
+
+    mqttClient = mqtt.connect(MQTT_URL, opts);
+
+    mqttClient.on('connect', () => {
+      setStatus('ok', 'Status : Terhubung ✓');
+      addHistory('Berhasil terhubung ke MQTT broker');
+
+      // Subscribe topic sensor dari Arduino
+      mqttClient.subscribe(TOPIC_SUB, (err) => {
+        if (!err) log('Subscribe OK: ' + TOPIC_SUB);
+        else      log('Subscribe GAGAL: ' + err.message);
+      });
+
+      // Subscribe balik perintah kontrol (untuk sync multi-device)
+      mqttClient.subscribe(TOPIC_PUB, (err) => {
+        if (!err) log('Subscribe OK: ' + TOPIC_PUB);
+      });
+    });
+
+    mqttClient.on('error', (err) => {
+      setStatus('err', 'Status : Error');
+      addHistory('Error: ' + err.message);
+    });
+
+    mqttClient.on('close', () => {
+      setStatus('err', 'Status : Terputus');
+      addHistory('Koneksi MQTT terputus');
+    });
+
+    /* ------ Tangani pesan masuk dari Arduino ------ */
+    mqttClient.on('message', (topic, payload) => {
+      const msg = payload.toString().trim();
+      log('IN [' + topic + ']: ' + msg);
+
+      // ── Data sensor dari Arduino ──────────────────────────────
+      // Format Arduino: "suhu,kelembapan" contoh: "28.5,65.0"
+      if (topic === TOPIC_SUB) {
+
+        // Cek dulu apakah pesan mode feedback dari Arduino
+        if (msg === 'MODE_AUTO') {
+          if (!autoMode) { autoMode = true; setMode('otomatis'); }
+          return;
+        }
+        if (msg === 'MODE_MANUAL') {
+          if (autoMode) { autoMode = false; setMode('manual'); }
+          return;
+        }
+
+        // Parse "suhu,hum"
+        const parts = msg.split(',');
+        if (parts.length === 2) {
+          const suhu = parseFloat(parts[0]);
+          const hum  = parseFloat(parts[1]);
+          if (!isNaN(suhu)) document.getElementById('suhu-val').textContent = suhu.toFixed(1) + ' °C';
+          if (!isNaN(hum))  document.getElementById('hum-val').textContent  = hum.toFixed(1)  + ' %';
+        }
+        return;
+      }
+
+      // ── Feedback perintah kontrol (sync antar device) ─────────
+      if (topic === TOPIC_PUB) {
+        if (msg === 'MODE_AUTO'   && !autoMode) { autoMode = true;  updateModeUI(); }
+        if (msg === 'MODE_MANUAL' && autoMode)  { autoMode = false; updateModeUI(); }
+
+        // Relay feedback: "R1_ON", "R2_OFF", dll
+        const relayMatch = msg.match(/^R(\d)_(ON|OFF)$/);
+        if (relayMatch) {
+          const idx   = parseInt(relayMatch[1]) - 1;
+          const state = relayMatch[2] === 'ON';
+          if (idx >= 0 && idx < NUM_RELAY && relayStates[idx] !== state) {
+            relayStates[idx] = state;
+            refreshRelay(idx);
+            addHistory(`Relay ${idx + 1} ${state ? 'ON' : 'OFF'} (feedback)`);
+          }
+        }
+      }
+    });
+  }
+
+  function doDisconnect() {
+    if (mqttClient) { mqttClient.end(true); mqttClient = null; }
+    setStatus('err', 'Status : Belum Terhubung');
+    addHistory('Disconnect manual');
+  }
+
+  /* ============================================================
+     HELPER: update UI mode tanpa publish ulang
+  ============================================================ */
+  function updateModeUI() {
+    document.getElementById('tab-manual').className = 'mode-tab' + (autoMode ? '' : ' active');
+    document.getElementById('tab-auto').className   = 'mode-tab' + (autoMode ? ' active' : '');
+    document.getElementById('mode-desc').textContent = autoMode
+      ? 'Relay dikontrol otomatis oleh sistem berdasarkan suhu'
+      : 'Relay dikontrol secara manual via tombol ON/OFF';
+    document.querySelectorAll('.r-on, .r-off').forEach(btn => {
+      btn.style.opacity       = autoMode ? '0.45' : '1';
+      btn.style.pointerEvents = autoMode ? 'none' : 'auto';
+    });
+  }
+
+  /* ============================================================
+     KIRIM PERINTAH RELAY
+     Format ke Arduino: "R1_ON", "R1_OFF", "R2_ON", dst.
+  ============================================================ */
+  function sendRelay(i, state) {
+    if (autoMode) {
+      addHistory('Mode Otomatis aktif — nonaktifkan dulu!');
+      return;
+    }
+    if (!isConnected || !mqttClient) {
+      addHistory('Gagal: belum terhubung ke MQTT!');
+      return;
+    }
+
+    // Format yang dimengerti Arduino
+    const cmd = `R${i + 1}_${state ? 'ON' : 'OFF'}`;
+    mqttClient.publish(TOPIC_PUB, cmd, { retain: false });
+
+    relayStates[i] = state;
+    refreshRelay(i);
+    addHistory(`Relay ${i + 1} → ${state ? 'ON' : 'OFF'} | kirim: ${cmd}`);
+  }
+</script>
+
+</body>
+</html>
